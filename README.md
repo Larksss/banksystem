@@ -17,7 +17,14 @@ I've created this bank system using Python solely. I have created the following 
 - Transfer between accounts
 - Show all accounts in the system
 
-As you can see, 3 instance objects were created for testing purposes.
+### Functions definition:
+- validate_name()
+- validate_amount()
+- Find_account()
+- authenticate_pin()
+
+I created these helper functions to make data verification easier, improve code readability, and prevent invalid user input.
+
 
 ### Menu system:
 A console-based menu system that allows users to interact with the banking application.
