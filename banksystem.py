@@ -3,201 +3,10 @@ import string
 from datetime import datetime
 
 
-class BankAccount:
-    ACTIVE = "active"
-    UNACTIVE = 'unactive'
-    USED_NUMBERS = list()         #Data base to avoid use the same account ID
-    USED_TRAN_ID = list()         # or transaction ID
-    
-    
-    def __init__(self, owner_name, balance):
-        while True:
-         self.account_number = random.randint(100000,999999)           
-         if self.account_number in BankAccount.USED_NUMBERS:
-             continue
-         BankAccount.USED_NUMBERS.append(self.account_number)
-         break
-        self.pin = random.randint(1000,9999)
-        self.owner_name = owner_name
-        self.balance = balance
-        self.transaction_history = list()
-        self.account_status = BankAccount.ACTIVE
-
-    @staticmethod  #the purpose of the function is to generate info of any transaction,
-    def _transaction_generator_info(description, amount):
-        generator = dict()
-        dat = datetime.now()
-        dat = dat.strftime("%Y-%m-%d %H:%M:%S")
-        transaction_id = BankAccount._transaction_generator_id()
-        #I place ID transaction as key in case end user wants to look for a specific transaction using ID
-        generator[('TRANSACTION ID:',transaction_id)] = [('DESCRIPTION' , description), ('AMOUNT:', amount),('DATE', dat )]
-        return generator
-    
-    @staticmethod
-    def _transaction_generator_id():
-        while True:
-          transaction_id = random.randint(0000,9999)
-          if transaction_id in BankAccount.USED_TRAN_ID:
-              continue
-          break
-        BankAccount.USED_TRAN_ID.append(transaction_id)
-        transaction_id = str(transaction_id)
-        transaction_id = 'TXN-' + transaction_id
-        return transaction_id
-        
-
-    def deposit(self, amount):
-        if self.account_status == BankAccount.UNACTIVE:
-            return False, 'This account is currently unactive'
-          
-        self.balance += amount
-        self.transaction_history.append(BankAccount._transaction_generator_info('Deposit', amount))
-        return True, 'Deposit successful'
-    
-    def transfer(self, receiver, amount):
-        if self.account_number == receiver.account_number:
-            self.transaction_history.append("\nFailed transfer: Invalid receiver")
-            return False, "You can not transfer money to your own account"
-
-        if amount <= 0:
-            self.transaction_history.append("Failed transfer: Invalid amount")
-            return False, "Incorrect format, Please try again"
-        
-        fee = amount * 0.02
-        total = amount + fee
-        success, message = self.withdraw(total)
-        if not success:
-            return success, message
-        success, message = receiver.deposit(amount)
-        if not success:
-            return success, message
-        return True, "Transferred successfully"
-    
-    def show_balance(self):
-        print(f'BALANCE {self.balance}')
-
-    def show_transactions(self):
-        if self.transaction_history:
-         print('\nTRANSACTION HISTORY\n')
-         for transaction in self.transaction_history:
-             if type(transaction) == dict:
-              for id,info in transaction.items():
-                  for line in info:
-                      print(*line)
-                  print(*id)
-                  print('\n')
-             else:
-                 print(transaction)
-        else:
-           print("\nNo transactions has been made yet")
-                
-    def freeze_account(self):
-        self.account_status = BankAccount.UNACTIVE
-        return "Account has been frozen "
-    
-    def unfreeze_account(self):
-        self.account_status = BankAccount.ACTIVE
-
-class SavingsAccount(BankAccount):
-    def __init__(self, owner_name, balance):
-        super().__init__(owner_name, balance)
-        self.withdraw_limit = 100
-
-    def withdraw(self, amount):
-        if self.account_status == BankAccount.UNACTIVE:
-            return False, 'This account is currently unactive'
-        
-        if self.balance - amount < self.withdraw_limit:
-            return False, 'Amount exceeds account limit'
-        
-        self.balance -= amount
-        self.transaction_history.append(BankAccount._transaction_generator_info('Withdraw', amount))
-        return True, "Withdrawal successful"
-        
-        
-class CheckingAccount(BankAccount):
-    def __init__(self, owner_name, balance):
-        super().__init__(owner_name, balance)
-        self.overdraft_limit = -200
-
-    def withdraw(self, amount):
-        if self.account_status == BankAccount.UNACTIVE:
-            return False, 'This account is currently unactive'
-
-        if amount <= 0:
-            return False, 'Amount must be greater than 0'
-
-        if self.balance - amount < self.overdraft_limit:
-            return False, 'Amounts exceeds account limit'
-        self.balance -= amount
-        self.transaction_history.append(BankAccount._transaction_generator_info('Withdraw', amount))
-        return True, "Withdrawal successful"
-    
-class Bank:
-    def __init__(self):
-        self.accounts = list()
-
-    def create_account_saving(self, owner, initial_balance):
-        account = SavingsAccount(owner, initial_balance)
-        self.accounts.append(account)
-        return True, account
-    
-    def create_checking_account(self, owner, initial_balance):
-        account = CheckingAccount(owner, initial_balance)
-        self.accounts.append(account)
-        return True, account
-        
-    def find_account(self, number):
-        for obj in self.accounts:
-            if obj.account_number == number:
-                return True, obj, "We have found your account"
-        return False, "We couldn't find an account with that number"
-    
-    def delete_account(self, account):
-        if account not in self.accounts:
-            return False, "This account does not belong to our Bank system"
-        
-        if account.balance != 0:
-            return False, "It's not possible to remove this account because of its remaining balance"
-        
-        self.accounts.remove(account)
-        return True, f'Account under de name of {account.owner_name} has been deleted'
-
-
-   #Check if you can use validate amount here bc you deleted one statement that was verifyng invalid amount in deposit     
-    def transfer_between_accounts(self, sender_number, receiver_number, amount):
-        obj1 = None
-        obj2 = None
-        
-        for obj in self.accounts:
-            if obj.account_number == sender_number:
-                obj1 = obj
-            elif obj.account_number == receiver_number:
-                obj2 = obj
-            if obj1 and obj2:
-                break
-        
-        if not obj1:
-            return False, "We have not found sender account in the system"
-        
-        if not obj2:
-            return False, "We have not found that receiver account in the system"
-        
-    
-        success, message = obj1.transfer(obj2, amount)
-        return success, message
-    
-    def show_all_accounts(self):
-        for line in self.accounts:
-            print(f"Account: {line.account_number} | Owner: {line.owner_name} | Balance: ${line.balance}")
-        
-
-bank = Bank()
-
-
 #FUNCTIONS FOR VERIFICATION TO WORK WITH MENU
 
-# Name validation is designed for common American names, allowing at most one apostrophe or one hyphen, and up to four names and at maximum of 60 characters.
+# Validates common American names, allowing up to four name parts,
+# a maximum of 60 characters, and at most 2 apostrophe and 1 hyphen.
 
 punctuations = list(string.punctuation.translate(str.maketrans("","",",-")))
 
@@ -250,8 +59,7 @@ def validate_name(prompt):
     if len(name) > 60:
        print("\nAccount name exceeds the allowed number of characters. Please ensure you enter your name exactly as it appears on your ID\n")
        continue
-
-
+    
     return name
     
 
@@ -297,7 +105,181 @@ def authenticate_pin(account): #This function requires account object to compare
     print("\nMaximum PIN attempts exceeded. Please try again tomorrow")
     return False
 
+#BANK SYSTEM
+
+class BankAccount:
+    ACTIVE = "active"
+    UNACTIVE = 'inactive'
+    USED_ACCOUNT_ID = set()         #Data base to avoid use the same account ID
+    USED_TRAN_ID = set()         # or transaction ID
     
+    
+    def __init__(self, owner_name, balance):
+         
+         self.account_number = random.randint(100000,999999)
+         while self.account_number in self.USED_ACCOUNT_ID:
+            self.account_number = random.randint(100000,999999)
+         BankAccount.USED_ACCOUNT_ID.add(self.account_number)
+    
+         self.pin = random.randint(1000,9999)
+
+         self.owner_name = owner_name
+
+         self.balance = balance
+
+         self.transaction_history = list()
+
+         self.account_status = BankAccount.ACTIVE
+
+    @classmethod
+    def _transaction_generator_info(cls, description, amount):
+         
+        transaction_id = random.randint(0,9999)
+        while transaction_id in cls.USED_TRAN_ID:
+           transaction_id = random.randint(0,9999)
+        cls.USED_TRAN_ID.add(transaction_id)
+        transaction_id = str(transaction_id)
+        transaction_id = 'TXN-' + transaction_id
+
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        #We pass this library as one item in the transaction list, this way is easier to organize it' 
+        return {'TRANSACTION ID:' : transaction_id, 'DESCRIPTION:' : description, 'AMOUNT:': amount, 'DATE:': date}
+    
+
+    def deposit(self, amount):
+        if self.account_status == BankAccount.UNACTIVE:
+            return False, 'This account is currently inactive'
+          
+        self.balance += amount
+        self.transaction_history.append(BankAccount._transaction_generator_info('Deposit', amount))
+        return True, 'Deposit successful'
+    
+    def transfer(self, receiver, amount):
+        if self.account_number == receiver.account_number:
+            return False, "You cannot transfer money to your own account"
+
+        #CONTINUE WORKING WITH CHATGPT 
+        fee = amount * 0.02
+        total = amount + fee
+
+        success, message = self.withdraw(total)
+        if not success:
+            return success, message
+        
+        success, message = receiver.deposit(amount)
+        if not success:
+            return success, message
+
+        return True, "Transferred successfully"
+    
+    def show_balance(self):
+        print(f'BALANCE {self.balance}')
+
+    def show_transactions(self):
+        if self.transaction_history:
+         print('\nTRANSACTION HISTORY\n\n')
+         for transaction in self.transaction_history:
+             for x,y in transaction.items():
+                print(x,y,'\n')
+
+        else:
+           print("\nNo transactions has been made yet")
+                
+    def freeze_account(self):
+        self.account_status = BankAccount.UNACTIVE
+        return "Account has been frozen "
+    
+    def unfreeze_account(self):
+        self.account_status = BankAccount.ACTIVE
+
+class SavingsAccount(BankAccount):
+    def __init__(self, owner_name, balance):
+        super().__init__(owner_name, balance)
+        self.minimum_balance = 100
+
+    def withdraw(self, amount):
+        if self.account_status == BankAccount.UNACTIVE:
+            return False, 'This account is currently inactive'
+        
+        if self.balance - amount < self.minimum_balance:
+            return False, 'Insufficient funds'
+        
+        self.balance -= amount
+        self.transaction_history.append(BankAccount._transaction_generator_info('Withdrawal', amount))
+        return True, "Withdrawal successful"
+        
+
+class CheckingAccount(BankAccount):
+    def __init__(self, owner_name, balance):
+        super().__init__(owner_name, balance)
+        self.overdraft_limit = -200
+
+    def withdraw(self, amount):
+        if self.account_status == BankAccount.UNACTIVE:
+            return False, 'This account is currently inactive'
+
+        if amount <= 0:
+            return False, 'Amount must be greater than 0'
+
+        if self.balance - amount < self.overdraft_limit:
+            return False, 'Insufficient funds'
+        
+        self.balance -= amount
+        self.transaction_history.append(BankAccount._transaction_generator_info('Withdrawal', amount))
+        return True, "Withdrawal successful"
+    
+    
+class Bank:
+    def __init__(self):
+        self.accounts = list()
+
+    def create_account_saving(self, owner, initial_balance):
+        account = SavingsAccount(owner, initial_balance)
+        self.accounts.append(account)
+        return True, account
+    
+    def create_checking_account(self, owner, initial_balance):
+        account = CheckingAccount(owner, initial_balance)
+        self.accounts.append(account)
+        return True, account
+        
+    def lookup_account(self, number):
+        for account in self.accounts:
+            if account.account_number == number:
+                return True, account, "We have found your account"
+        return False, None, "We couldn't find an account with that number"
+    
+    def delete_account(self, account):
+        if account not in self.accounts:
+            return False, "This account does not belong to our Bank system"
+        
+        if account.balance != 0:
+            return False, "It's not possible to remove this account because of its remaining balance"
+        
+        self.accounts.remove(account)
+        return True, f'Account under the name of {account.owner_name} has been deleted'
+
+     
+    def transfer_between_accounts(self):
+        sender_account = find_account("Please enter sender account: ")
+        receiver_account = find_account("Please enter receiver account")
+        amount = validate_amount("Enter amount to be transfered")
+
+        success, message = sender_account.transfer(receiver_account, amount)
+        if success:
+           print(message)
+        else:
+           print(message)
+
+
+    def show_all_accounts(self):
+        for line in self.accounts:
+            print(f"Account: {line.account_number} | Owner: {line.owner_name} | Balance: ${line.balance}")
+        
+
+bank = Bank()
+
 
 while True:
  try:
